@@ -71,8 +71,8 @@ Make sure:
             {"role": "system", "content": "You are a helpful educational assistant that generates well-structured quizzes in JSON format. Adjust the level of quiz complexity to the '{difficulty}' level."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.7,  # Adding temperature for better creativity
-        max_tokens=2000   # Ensuring enough tokens for complete response
+        temperature=0.3,  # Adding temperature for better creativity
+        max_tokens=2800   # Ensuring enough tokens for complete response
     )
     return response.choices[0].message.content
 
@@ -255,6 +255,7 @@ if st.session_state.last_generated_quiz:
                 st.json(upload_result)
 else:
     st.info("Generate a quiz first to enable upload functionality")
+
 
 
 
