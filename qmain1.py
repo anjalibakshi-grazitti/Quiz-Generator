@@ -68,7 +68,15 @@ Make sure:
     response = client.chat.completions.create(
         model="gpt-4o-mini",  # Using the correct model
         messages=[
-            {"role": "system", "content": "You are a helpful educational assistant that generates well-structured quizzes in JSON format. Adjust the level of quiz complexity to the '{difficulty}' level."},
+            {"role": "system", "content": f"""
+You are a strict quiz generator. 
+Rules you must always follow:
+- Output only a valid JSON array (no text outside the array).
+- The array must contain exactly 20 questions. Never fewer, never more. 
+- Each question must be a JSON object with:
+  "skills", "difficulty", "name", "score", "options", "correctOption", "type".
+- Difficulty should be "{difficulty}".
+"""},
             {"role": "user", "content": prompt}
         ],
         temperature=0.3,  # Adding temperature for better creativity
@@ -255,6 +263,7 @@ if st.session_state.last_generated_quiz:
                 st.json(upload_result)
 else:
     st.info("Generate a quiz first to enable upload functionality")
+
 
 
 
