@@ -4,3 +4,5 @@ pypdf
 python-docx
 yagmail
 python-dotenv
+openai==1.42.0
+
