@@ -225,7 +225,7 @@ elif input_method == "Document-based (upload a document)":
 
 def upload_quiz(quiz_data): 
     url = "https://api-hireit.grazitti.com/question-mgmt/upload-json-questions"
-    sec_api_key =  "2025-08-26:OSfJIyzeRBfp007zqcYD7KBf4" #date in YYYY-MM-DD format 
+    sec_api_key = "2025-08-26:OSfJIyzeRBfp007zqcYD7KBf4"  # date in YYYY-MM-DD format 
     base64_api_key = base64.b64encode(sec_api_key.encode('utf-8')).decode('utf-8')
 
     headers = {
@@ -233,16 +233,22 @@ def upload_quiz(quiz_data):
         "Content-Type": "application/json"
     }
 
-
     try:
-       
-        response = requests.post(url, headers=headers, json=quiz_data)
-        #breakpoint()
-        print(response.json())
+        # 👇 wrap quiz_data inside a dict
+        payload = {"questions": quiz_data}  
+
+        print("🚀 Uploading this JSON:")
+        print(json.dumps(payload, indent=2))  # Debug: see exactly what's sent
+
+        response = requests.post(url, headers=headers, json=payload)
+
+        print("📥 API Response:", response.text)  # Debug: see raw API response
+
         response.raise_for_status()  
         return response.json()
     except requests.exceptions.RequestException as e:
         return {"error": str(e)}
+
 
 # Add this after the document-based upload section
 st.markdown("---")
@@ -263,6 +269,7 @@ if st.session_state.last_generated_quiz:
                 st.json(upload_result)
 else:
     st.info("Generate a quiz first to enable upload functionality")
+
 
 
 
