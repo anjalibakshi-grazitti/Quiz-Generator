@@ -1,3 +1,5 @@
+#HireIT api key quiz generator
+#Quiz can be generated either by topic or a document. No of questions can be changed by changing the prompt
 import streamlit as st
 import os
 from dotenv import load_dotenv
@@ -11,7 +13,6 @@ import json
 import re
 import base64
 import requests
-import pdb
 
 load_dotenv()
 
@@ -68,19 +69,11 @@ Make sure:
     response = client.chat.completions.create(
         model="gpt-4o-mini",  # Using the correct model
         messages=[
-            {"role": "system", "content": f"""
-You are a strict quiz generator. 
-Rules you must always follow:
-- Output only a valid JSON array (no text outside the array).
-- The array must contain exactly 20 questions. Never fewer, never more. 
-- Each question must be a JSON object with:
-  "skills", "difficulty", "name", "score", "options", "correctOption", "type".
-- Difficulty should be "{difficulty}".
-"""},
+            {"role": "system", "content": "You are a helpful educational assistant that generates well-structured quizzes in JSON format. Adjust the level of quiz complexity to the '{difficulty}' level."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.3,  # Adding temperature for better creativity
-        max_tokens=2800   # Ensuring enough tokens for complete response
+        temperature=0.7,  # Adding temperature for better creativity
+        max_tokens=2000   # Ensuring enough tokens for complete response
     )
     return response.choices[0].message.content
 
@@ -96,9 +89,16 @@ def create_retriever(docs):
 
 def extract_json_array(text):
     """
-    Extracts the first JSON array found in a string.
+    Extracts the first JSON array found in a string, even if preceded by 'json' or markdown code block.
     Returns the JSON array as a string, or None if not found.
     """
+    # Remove markdown code block and 'json' prefix if present
+    text = text.strip()
+    if text.startswith("```json"):
+        text = text[len("```json"):].strip()
+    if text.startswith("json"):
+        text = text[len("json"):].strip()
+    # Now extract the array
     match = re.search(r'(\[.*\])', text, re.DOTALL)
     if match:
         return match.group(1)
@@ -176,14 +176,13 @@ elif input_method == "Document-based (upload a document)":
                 doc_text = "\n".join([doc.page_content for doc in docs])
 
                 with st.spinner("Generating quiz..."):
-                    result = generate_quiz(doc_text, difficulty)
+                    result = ""
                     try:
-                        quiz_data = json.loads(result)
-                        st.session_state.last_generated_quiz = quiz_data
+                        result = generate_quiz(doc_text, difficulty)
                         # Display quiz in a more organized way
                         st.success("Quiz Generated Successfully!")
                         
-                        for i, question in enumerate(quiz_data, 1):
+                        for i, question in enumerate(json.loads(result), 1):
                             st.markdown(f"### Question {i}")
                             st.write(question["name"])
                             
@@ -198,57 +197,81 @@ elif input_method == "Document-based (upload a document)":
                             
                             st.markdown("---")
                     except json.JSONDecodeError:
-                        # Try to extract questions from the raw output
-                        st.success("Quiz Generated Successfully!")
-                        pattern = r"\d+\. (.*?)\n\s*A\. (.*?)\n\s*B\. (.*?)\n\s*C\. (.*?)\n\s*D\. (.*?)\n\s*Answer: (.*?)\n"
-                        matches = re.findall(pattern, result, re.DOTALL)
-                        if matches:
-                            for i, match in enumerate(matches, 1):
-                                st.markdown(f"### Question {i}")
-                                st.write(match[0].strip())
-                                for j, option in enumerate(match[1:5]):
-                                    st.write(f"{chr(65+j)}. {option.strip()}")
-                                with st.expander("Show Answer"):
-                                    st.write(f"Correct Answer: {match[5].strip()}")
-                                st.markdown("---")
+                        # Try to extract JSON array from the text
+                        json_array = extract_json_array(result)
+                        if json_array:
+                            try:
+                                # Try to fix common JSON issues
+                                fixed_json = json_array.replace(",\n]", "\n]")
+                                quiz_data = json.loads(fixed_json)
+                                st.session_state.last_generated_quiz = quiz_data
+                                st.success("Quiz Generated Successfully (after extraction)!")
+                                for i, question in enumerate(quiz_data, 1):
+                                    st.markdown(f"### Question {i}")
+                                    st.write(question["name"])
+                                    options = question["options"]
+                                    for j, option in enumerate(options):
+                                        st.write(f"{chr(65+j)}. {option}")
+                                    with st.expander("Show Answer"):
+                                        st.write(f"Correct Answer: {question['correctOption']}")
+                                    st.markdown("---")
+                            except Exception as e:
+                                st.error("Could not parse extracted JSON array. Please check the model output.")
+                                st.write("Extracted JSON:", json_array)
+                                st.write("Raw response:", result)
                         else:
-                            st.warning("Could not extract questions from the output.")
-                    except Exception as e:
-                        st.error(f"Error displaying quiz: {str(e)}")
-                        st.write("Raw response:", result)
+                            # Fallback: Try to extract using regex
+                            pattern = r"\d+\. (.*?)\n\s*A\. (.*?)\n\s*B\. (.*?)\n\s*C\. (.*?)\n\s*D\. (.*?)\n\s*Answer: (.*?)\n"
+                            matches = re.findall(pattern, result, re.DOTALL)
+                            if matches:
+                                st.success("Quiz Generated Successfully (using regex fallback)!")
+                                quiz_data = []
+                                for i, match in enumerate(matches, 1):
+                                    question_json = {
+                                        "skills": "",
+                                        "difficulty": difficulty.lower(),
+                                        "name": match[0].strip(),
+                                        "score": "1",
+                                        "options": [match[1].strip(), match[2].strip(), match[3].strip(), match[4].strip()],
+                                        "correctOption": match[5].strip(),
+                                        "type": "MCQ"
+                                    }
+                                    quiz_data.append(question_json)
+                                    st.markdown(f"### Question {i}")
+                                    st.write(question_json["name"])
+                                    for j, option in enumerate(question_json["options"]):
+                                        st.write(f"{chr(65+j)}. {option}")
+                                    with st.expander("Show Answer"):
+                                        st.write(f"Correct Answer: {question_json['correctOption']}")
+                                    st.markdown("---")
+                                st.session_state.last_generated_quiz = quiz_data
+                            else:
+                                # If all fails, show the raw output for debugging
+                                st.error("Could not extract questions from the output. Please check the model output below.")
+                                st.write("Raw response:", result)
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Error displaying quiz: {str(e)}")
+                st.write("Raw response:", result)
             finally:
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
-
 def upload_quiz(quiz_data): 
     url = "https://api-hireit.grazitti.com/question-mgmt/upload-json-questions"
-    sec_api_key = "2025-08-26:OSfJIyzeRBfp007zqcYD7KBf4"  # date in YYYY-MM-DD format 
+    sec_api_key =  "2025-08-26:OSfJIyzeRBfp007zqcYD7KBf4"
     base64_api_key = base64.b64encode(sec_api_key.encode('utf-8')).decode('utf-8')
 
     headers = {
         "Authorization": f"Basic {base64_api_key}",
         "Content-Type": "application/json"
-    }
+    } 
 
     try:
-        # 👇 wrap quiz_data inside a dict
-        payload = {"questions": quiz_data}  
-
-        print("🚀 Uploading this JSON:")
-        print(json.dumps(payload, indent=2))  # Debug: see exactly what's sent
-
-        response = requests.post(url, headers=headers, json=payload)
-
-        print("📥 API Response:", response.text)  # Debug: see raw API response
-
+        response = requests.post(url, headers=headers, json=quiz_data)
         response.raise_for_status()  
         return response.json()
     except requests.exceptions.RequestException as e:
         return {"error": str(e)}
-
 
 # Add this after the document-based upload section
 st.markdown("---")
@@ -269,11 +292,6 @@ if st.session_state.last_generated_quiz:
                 st.json(upload_result)
 else:
     st.info("Generate a quiz first to enable upload functionality")
-
-
-
-
-
 
 
 
