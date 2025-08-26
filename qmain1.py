@@ -225,7 +225,7 @@ elif input_method == "Document-based (upload a document)":
 
 def upload_quiz(quiz_data): 
     url = "https://api-hireit.grazitti.com/question-mgmt/upload-json-questions"
-    sec_api_key =  "2025-07-31:OSfJIyzeRBfp007zqcYD7KBf4" #date in YYYY-MM-DD format 
+    sec_api_key =  "2025-08-26:OSfJIyzeRBfp007zqcYD7KBf4" #date in YYYY-MM-DD format 
     base64_api_key = base64.b64encode(sec_api_key.encode('utf-8')).decode('utf-8')
 
     headers = {
@@ -263,6 +263,7 @@ if st.session_state.last_generated_quiz:
                 st.json(upload_result)
 else:
     st.info("Generate a quiz first to enable upload functionality")
+
 
 
 
