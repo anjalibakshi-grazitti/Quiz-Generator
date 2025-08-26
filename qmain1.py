@@ -36,7 +36,7 @@ def load_document(file_path):
 def generate_quiz(content, difficulty):
     prompt = f"""
 You are an AI tutor who generates educational content. Create a quiz based on the following content:
-Strictly return only a valid JSON array of 3 multiple-choice questions (MCQs). Do not include any explanation, notes, or introductory text—only the pure JSON list.
+Strictly return only a valid JSON array of 20 multiple-choice questions (MCQs). Do not include any explanation, notes, or introductory text—only the pure JSON list.
 {content}
 
 Generate 20 multiple-choice questions (MCQs) with the following specifications:
@@ -255,6 +255,7 @@ if st.session_state.last_generated_quiz:
                 st.json(upload_result)
 else:
     st.info("Generate a quiz first to enable upload functionality")
+
 
 
 
